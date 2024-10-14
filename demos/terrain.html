@@ -1,0 +1,114 @@
+﻿<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <title>raw</title>
+  <script src="../raw.js?f33eegfdg"></script>
+  <script src="demo.js"></script>
+</head>
+
+<body>
+  <script>
+    demo_app({}, function (app) {
+
+      var scene_light = app.create_render_item(new raw.shading.light(), function (entity, light) {
+        app.attach_component(entity, 'transform_controller', {
+          rotate: [RD(-125), RD(160), 0]
+        });
+
+        light.set_intensity(2)
+        .set_diffuse(1, 1, 1)
+        .set_ambient(0.82, 0.82, 0.82);
+
+      });
+
+
+      var ter = app.create_entity({
+        components: {
+          'transform': {},
+          'terrain': {
+            wireframe: true,
+            shaded: true,
+            region_size: 1024, // size of a single region in unit
+            world_size: 4096, // size of whole world (no of regions)
+            terrain_quality: 4, // cannot be set during runtime, quality of terrain mesh(1-6) ,lower is better but cosume more memory and processing
+            detail_levels: [1, 4, 8, 12, 16, 24], // level details at different distance
+            quality_distance: 2500, // distrubute lod in this distance
+            draw_distance: 8000,// do not draw region after this distance
+            region_distance: 8,// region to scan from camera
+            regions_from_image_url: [
+
+
+
+              ["res/h14.png",
+                -8, -8,// position of regsion in world
+                0.28,//  divide height from source
+                1024, 1024,//  input image size
+                16 //  scale terrain at runtime by this factor it must be power 2
+              ]
+            ],
+            material: {
+              // support 4 textures to blend from , it creates a single texture from these times
+              texture_tiles: [
+                "res/dirt.jpg",
+                "res/grass.jpg",
+                "res/mud.jpg",
+                "res/stone.jpg"
+              ],
+              // extend shader and provide custome texturing , for example from a splat map
+              shader: `
+    vec4 mix_texture_tiles(vec4 tile1,vec4 tile2,vec4 tile3,vec4 tile4,vec3 normal){
+    return mix(tile1,mix(read_tile(u_texture_tiles_rw,4.0, 1.0,0.0), tile3,0.5),abs(normal.x));
+    }
+    void fragment(void){
+    super_fragment();
+    }
+    `            }
+          },
+          'skybox': {
+            sun_direction: scene_light.transform_controller.fw_vector
+          }
+        }
+      });
+      console.log(ter);
+
+      // update terrain system 15 times in one sec
+      app.systems.terrain_system.step_size = 1 / 15;
+      app.update_debug_canvas = function (ctx) {
+        ctx.fillText('Terrain ' + ter.terrain.debug_text, 3, 500);
+      };
+
+      var ca = 1, cs = 0.03;
+      var a1 = RND(0.005);
+      var w1 = ter.terrain.region_size * 6;
+      var w2 = ter.terrain.region_size * (RND(2) + 4);
+
+      app.run_debug(function (delta) {
+        app.camera.transform.position[0] = -Math.sin(ca * raw.math.DEGTORAD) * w1;
+        app.camera.transform.position[2] = Math.cos(ca * raw.math.DEGTORAD) * w2;
+
+        app.camera.transform_controller.yaw_pitch(0, Math.cos(ca * raw.math.DEGTORAD) * a1);
+
+        scene_light.transform_controller.rotate_eular(
+          (-Math.sin((ca % 180) * raw.math.DEGTORAD) * 0.55)
+          , 160 * raw.math.DEGTORAD, 0);
+
+
+        if (Math.round(ca) % 45 === 0) {
+          a1 = RND(0.005) - 0.0025;
+        }
+        ca += cs;
+        ca = ca % 360;
+
+        app.camera.transform.position[1] = Math.floor(ter.terrain.height_on_camera + 70);
+
+      }, 1 / 90);
+    });
+
+
+
+
+  </script>
+</body>
+</html>
